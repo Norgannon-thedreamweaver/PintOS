@@ -98,18 +98,21 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
-
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
-    
-    /*new members are all below*/
+   
+   /*new members are all below*/
     int64_t blocked_ticks;              /* Ticks of thread should be blocked through timer_sleep() */
 
     struct lock *lock_waiting;          /* Lock that this thread is waiting for */
     struct list locks_holding;          /* Locks that this thread hold */
     int old_priority;                   /* Priority before donation */
     int nice;                           /* Nice of thread */
-    real recent_cpu;
+    real recent_cpu;                    /* Recent cpu of thread */
+
+
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+    
+    
   };
 
 /* If false (default), use round-robin scheduler.
