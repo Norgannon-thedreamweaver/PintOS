@@ -409,25 +409,12 @@ thread_foreach_block (thread_action_func *func, void *aux)
     }
 }
 
-void
-thread_foreach_block (thread_action_func *func, void *aux)
-{
-  struct list_elem *e;
-
-  ASSERT (intr_get_level () == INTR_OFF);
-
-  for (e = list_begin (&block_list); e != list_end (&block_list);
-       e = list_next (e))
-    {
-      struct thread *t = list_entry (e, struct thread, block_elem);
-      func (t, aux);
-    }
-}
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
+  enum intr_level old_level = intr_disable ();
   struct thread *current_thread = thread_current ();
   current_thread->old_priority = new_priority;
 
@@ -435,6 +422,7 @@ thread_set_priority (int new_priority)
     current_thread->priority = new_priority;
     thread_yield();
   }
+  intr_set_level (old_level);
 }
 
 void
