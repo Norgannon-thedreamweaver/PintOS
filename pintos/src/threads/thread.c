@@ -28,7 +28,8 @@ static struct list block_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
-static struct list block_list;
+//static struct list block_list;
+static struct list sleep_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -100,7 +101,8 @@ thread_init (void)
   for(i=0;i<64;i++)
     list_init (&ready_list[i]);
   list_init (&all_list);
-  list_init(&block_list);
+  //list_init(&block_list);
+  list_init(&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -237,6 +239,8 @@ thread_block (void)
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
 }
+
+/*
 void
 thread_block_sleep (void) 
 {
@@ -251,8 +255,24 @@ thread_block_sleep (void)
   cur->status = THREAD_BLOCKED;
   list_push_back(&block_list,&cur->block_elem);
   schedule ();
-}
+}*/
 
+void
+thread_block_sleep2 (int64_t time) 
+{
+  struct thread * cur=thread_current ();
+  cur->sleep_ticks=time;
+  #ifdef USERPROG
+    if(!thread_start_flag)
+      return;
+  #endif
+  ASSERT (!intr_context ());
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  cur->status = THREAD_BLOCKED;
+  list_insert_ordered(&sleep_list,&cur->sleep_elem,thread_cmp_sleep,NULL);
+  schedule ();
+}
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -274,7 +294,8 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
-void
+
+/*void
 thread_unblock_sleep (struct thread *t) 
 {
   ASSERT (is_thread (t));
@@ -285,8 +306,20 @@ thread_unblock_sleep (struct thread *t)
   list_push_back (&ready_list[t->priority], &t->elem);
   t->status = THREAD_READY;
   //intr_set_level (old_level);
-}
+}*/
 
+void
+thread_unblock_sleep2 (struct thread *t) 
+{
+  ASSERT (is_thread (t));
+
+  //old_level = intr_disable ();
+  ASSERT (t->status == THREAD_BLOCKED);
+  list_remove(&t->sleep_elem);
+  list_push_back (&ready_list[t->priority], &t->elem);
+  t->status = THREAD_READY;
+  //intr_set_level (old_level);
+}
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
@@ -367,13 +400,30 @@ thread_yield (void)
 
 /* New function. check whether the thread should be awoken.
    this func will be called every tick inside timer_interrupt(). */
-void
+/*void
 check_thread_sleep (struct thread* t,void *aux) 
 {
   if(t->blocked_ticks>0){
     t->blocked_ticks--;
     if(t->blocked_ticks==0)
       thread_unblock_sleep(t);
+  }
+}
+*/
+void
+check_thread_sleep2 (int64_t time) 
+{
+  struct thread* t;
+  while(!list_empty(&sleep_list)){
+    t=list_entry(list_front(&sleep_list),struct thread,sleep_elem);
+    if(t->sleep_ticks>time){
+      break;
+    }
+    else{
+      list_remove(&t->sleep_elem);
+      t->sleep_ticks=0;
+      thread_unblock_sleep2(t);
+    }
   }
 }
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -394,7 +444,7 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
-void
+/*void
 thread_foreach_block (thread_action_func *func, void *aux)
 {
   struct list_elem *e;
@@ -408,7 +458,7 @@ thread_foreach_block (thread_action_func *func, void *aux)
       func (t, aux);
     }
 }
-
+*/
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
@@ -622,7 +672,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   
-  t->blocked_ticks=0;
+  t->sleep_ticks=0;
   t->lock_waiting=NULL;
   t->old_priority=priority;
   list_init (&t->locks_holding);
@@ -756,6 +806,13 @@ allocate_tid (void)
 
   return tid;
 }
+
+int
+thread_cmp_sleep (const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  return list_entry(a, struct thread, sleep_elem)->sleep_ticks < list_entry(b, struct thread, sleep_elem)->sleep_ticks;
+}
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
