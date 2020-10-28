@@ -93,7 +93,8 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    struct list_elem block_elem;              /* List element. */
+    //struct list_elem block_elem;              /* List element. */
+    struct list_elem sleep_elem;              /* List element. */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -101,7 +102,8 @@ struct thread
 #endif
    
    /*new members are all below*/
-    int64_t blocked_ticks;              /* Ticks of thread should be blocked through timer_sleep() */
+    //int64_t blocked_ticks;              /* Ticks of thread should be blocked through timer_sleep() */
+    int64_t sleep_ticks;
 
     struct lock *lock_waiting;          /* Lock that this thread is waiting for */
     struct list locks_holding;          /* Locks that this thread hold */
@@ -109,7 +111,6 @@ struct thread
     int nice;                           /* Nice of thread */
     real recent_cpu;                    /* Recent cpu of thread */
 
-   struct list_elem block_elem;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
     
@@ -132,8 +133,10 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_block_sleep (void) ;
+void thread_block_sleep2 (int64_t time) ;
 void thread_unblock (struct thread *);
 void thread_unblock_sleep (struct thread *t) ;
+void thread_unblock_sleep2 (struct thread *t) ;
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -149,6 +152,7 @@ void thread_foreach_block (thread_action_func *func, void *aux);
 
 /*new function*/
 void check_thread_sleep (struct thread* t,void *aux);
+void check_thread_sleep2 (int64_t time);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
@@ -165,5 +169,7 @@ void update_priority(struct thread *t,void *aux);
 real update_load_avg(void);
 void update_recent_cpu(struct thread* t,void *aux);
 
+
+int thread_cmp_sleep (const struct list_elem *a, const struct list_elem *b, void *aux);
 #endif /* threads/thread.h */
 
